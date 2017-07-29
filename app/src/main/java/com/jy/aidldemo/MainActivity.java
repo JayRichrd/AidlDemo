@@ -18,6 +18,23 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvResult;
     // IBinder对象
     private IMyAidl mIMyAidl;
+    // 绑定服务的intent
+    private Intent intent;
+    // Binder死亡通知
+    private IBinder.DeathRecipient deathRecipient = new IBinder.DeathRecipient() {
+
+        @Override
+        public void binderDied() {
+            if (mIMyAidl==null)
+                return;
+            // 首先取消死亡监听
+            mIMyAidl.asBinder().unlinkToDeath(deathRecipient,0);
+            // 将IBinder客户端重置为空
+            mIMyAidl = null;
+            // 重新绑定服务
+            bindService(intent, mConnection, BIND_AUTO_CREATE);
+        }
+    };
     // 服务连接
     private ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -28,6 +45,12 @@ public class MainActivity extends AppCompatActivity {
              * 将IBinder对象转换成具体的IMyAidl类型
              */
             mIMyAidl = IMyAidl.Stub.asInterface(service);
+            // 设置服务绑定死亡监听
+            try {
+                service.linkToDeath(deathRecipient,0);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
         }
 
         @Override
@@ -43,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
         tvResult = (TextView) findViewById(R.id.tv_result);
         // 绑定服务service
         // 5.0以后必须采用显示Intent的方式绑定
-        Intent intent = new Intent(getApplicationContext(), MyAidlService.class);
+        intent = new Intent(getApplicationContext(), MyAidlService.class);
         bindService(intent, mConnection, BIND_AUTO_CREATE);
     }
 
